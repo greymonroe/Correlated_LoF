@@ -1,0 +1,196 @@
+---
+title             : "Correlated loss-of-function in _Arabidopsis thaliana_"
+shorttitle        : "Correlated loss-of-function"
+
+author: 
+  - name          : "J. Grey Monroe"
+    affiliation   : "1"
+    corresponding : yes    # Define only one corresponding author
+    address       : "307 University Ave. Fort Collins, CO 80521, USA"
+    email         : "monroejgy@colostate.edu"
+  - name          : "John T. Lovell"
+    affiliation   : "2"
+  - name          : "Jesse Lasky"
+    affiliation   : "3"
+    
+affiliation:
+  - id            : "1"
+    institution   : "College of Agriculture, Colorado State University, Fort Collins, CO 80521, USA"
+  - id            : "2"
+    institution   : "Hudson Alpha"
+  - id            : "3"
+    institution   : "Biology Department, Pennsylvania State University, State College, PA, USA"
+
+abstract: |
+  
+  
+keywords          : "loss-of-function, Arabidopsis thaliana, functional genomics"
+wordcount         : ""
+
+bibliography      : ["r-references.bib"]
+csl               : mycsl.csl
+
+
+floatsintext      : no
+figurelist        : no
+tablelist         : no
+footnotelist      : no
+linenumbers       : yes
+mask              : no
+draft             : no
+figsintext        : yes
+
+documentclass     : "apa6"
+classoption       : "man"
+output            : papaja::apa6_pdf
+
+header-includes   : 
+  \newcommand{\beginsupplement}{\setcounter{table}{0}  \renewcommand{\thetable}{S\arabic{table}} \setcounter{figure}{0} \renewcommand{\thefigure}{S\arabic{figure}}}
+---
+
+```{r setup, include = FALSE}
+library("papaja")
+library("ggplot2")
+library("cowplot")
+library("tidyverse")
+library("seqinr")
+library("foreach")
+library("doSNOW")
+
+```
+
+```{r make.LoFmatrix, results = "hide"}
+source("../src/make.gene_model_stops.R")
+source("../src/make.LoFmatrix.R")
+
+
+```
+
+```{r analyzedata}
+sepalcor<-cor.test(iris_data$Sepal.Length, iris_data$Sepal.Width)
+petalcor<-cor.test(iris_data$Petal.Length, iris_data$Petal.Width)
+
+speciesmeanstable<-iris_data %>% 
+  group_by(Species) %>%
+  summarise(Sepal.Length=mean(Sepal.Length), Sepal.Width=mean(Sepal.Width), Petal.Length=mean(Petal.Length), Petal.Width=mean(Petal.Width))
+
+write.csv(speciesmeanstable, "../Tables/speciesmeanstable.csv")
+```
+
+```{r makeiriscorrelationsplot, results = "hide"}
+
+pdf("../Figures/iriscorrelationsplot.pdf", width=5, height=5)
+
+sepals<-ggplot(iris_data, aes(x= Sepal.Length, y=Sepal.Width, col=Species))+
+  geom_point()+
+  theme_classic()
+
+petals<-ggplot(iris_data, aes(x= Petal.Length, y=Petal.Width, col=Species))+
+  geom_point()+
+  theme_classic()
+
+cowplot::plot_grid(sepals, petals, ncol=1, labels="auto")
+
+dev.off()
+
+```
+
+
+
+# Introduction
+Genetic loss-of-function alleles such as frameshift and premature stop codons can be common in natural populations but we know little about the adaptive signficance of these variants. By studying correlations between loss-of-function alleles we may gain insight into the evolutionary processes such as selection that explain patterns of natural loss-of-function across genomes and individuals. Positive correlations indicate pairs of genes in which loss-of-function in one gene is associated with loss-of-function in the second gene. Conversely, negative correlations are observed in pairs of genes in which loss-of-function in one gene is associated with functional alleles in the second gene. Several processes may explain such correlations: (1) physical linkage between genes could explain both positive and negative correlations, (2) positive correlations could be the product of common genetic targets of selection for loss or reflect relaxed selection in regions of gene regulatory network space after a key gene is already lost. (3) negative correlations could be explained by purifiying selection acting to prevent loss of pairs of functionally similar genes. 
+
+To address these hypotheses, we examined correlated loss-of-function in 1135 Arabidopsis thaliana ecotypes. Such a genome-wide evaluation of correlated loss-of-function has been made possible only recently with the availabilty of species scale genome sequencing and has yet to be conducted for any organism as far as I am aware. Speficifically, we asked whether correlations between gene pairs are predicted by measures of physical linkage (genes being on the same chromosome), proximity between genes in gene regulatory network space, and pairs of genes produced by duplication. 
+
+# Materials and Methods
+## Data
+### Sequence data
+Obtained from 1001 genomes project [@alonso20161].
+
+## Analyses
+### Defining loss-of-function
+We identified loss-of-function alleles in 1135 Arabidopsis thaliana genomes with the following pipeline. First, we converted vcf genotype files into fasta files for the coding region and 3UTR for each gene model predicted based on the Columbia reference genome. Each fasta file contained 1135 sequences and included small insertion and deletion mutations. For each gene we then concatenated the coding regions with the corresponding 3UTR (for genes with 3UTRs). This was done to overcome potential cases where the refernce gene model is actually a loss-of-function allele itself. In these cases, we might expect the 3UTR to contain functionally relevant sequences that would be translated in other genotypes. Next, for each gene/ecotype, this sequence was translated into the predicted amino acid sequence. As expected, a quick glance revealed that most alleles had a stop codon at the terminal position of the gene model coding region. The position of the first stop codon for each allele was used to predict the total amino acid sequence length. For each gene model the longest amino acid sequence was used as the estimate of the length of the functional allele state. Those alleles identified as having a predicted protein length less than 90% of this functional allele were classified as non-functional. Genes with mutliple gene models were collapsed into a single allele call by classifying alleles as non-functional if any gene model was non-functional. Based on this pipeline, each gene/ecotype asscored as a functional (0) or non-functional (1) allele for correlation analyses. For the remaining analyses, we subsetted the total genes to those with at least 0.5 % frequency (6 out of 1135) loss-of-function alleles, for a total of 6234 genes.  *Notes: does not look at splice site or start codon mutations. Could be cases where alternative splicing ameliorates LoF allele effects.
+
+### Correlations
+Pairwise Pearson correlations were calculated between all genes. We tested whether the average correlation deviated from 0 with a t-test. To check whether biases in allele frequencies would affect mean correlations we simulated genes with the same allele frequencies of the observed datasets and calculated pairwise correlations. We tested the resulting simulated correlations with a t-test to evaluate whether they deviated from 0. 
+
+### Physical linkage
+To test whether physical linkage explained correlations between genes by testing whether the absolute value of correlations between gene pairs found on the same chromosome was predicted by the physical distance in mB between each gene.
+
+### Gene regulatory networks
+To test whether correlations were predicted by relationships between genes in the context of gene regulatory networks we used the AraNet probabalistic Arabidopsis gene relationship database. We converted these into networks using the igraph package in R and calculated the distance between gene pairs. Gene pairs with a distance of "Infinity" are those found on independent clusters within the estimated gene regulatory network. We split the gene pairs into those with negative and positive correlations. For those genes found in the same cluster, we asked if the distance between genes in the network predicted the correlation between loss-of-function alleles by a linear regression. 
+
+### Duplicated genes
+To test whether correlated loss-of-function was different between genes classified as duplicates we used Arabidopsis gene duplication data reported by Wang et al 2013. We split gene pairs by those with positive and negative correlations and asked if correlations were signficantly different between duplicate and non-duplicate gene pairs by one way anovas. We also tested if genes with duplicates have higher LoF allele frequencies.
+We used R for all analyses [@R-base].
+
+# Results
+
+(ref:iriscorrelationsplot) Sepals and petals in three _Iris_ species. (a) Relationship between sepal length and width. (b) Relatiopnship between petal length and width.  
+
+```{r iriscorrelationsplot, fig.cap='(ref:iriscorrelationsplot)', out.width = "\\textwidth", fig.pos = "!h"}
+knitr::include_graphics("../Figures/iriscorrelationsplot.pdf", dpi = 108)
+```
+
+```{r speciesmeanstable, results = 'asis', echo = F}
+apa_table(
+  speciesmeanstable
+  , caption = "Mean values for floral organ traits in three Iris species.",
+  digits=3,
+  font_size="small",
+  longtable = F
+)
+```
+
+Length and width of sepals were not correlated (r = `r sepalcor$estimate`, p = `r sepalcor$p.value`, Figure \@ref(fig:iriscorrelationsplot)a). In contrast, length and width of petals showed a strong positive correlation (r = `r petalcor$estimate`, p = `r petalcor$p.value`, figure \@ref(fig:iriscorrelationsplot)b).
+
+The mean species values for each trait are shown in table \@ref(tab:speciesmeanstable)
+
+
+
+# Discussion
+
+
+e found that correlations between gene loss tends to be more positive than negative in Arabidopsis. Simulated alleles showed no bias in the direction of correlations, suggesting that the pattern we observed is either explained by some evolutionary procress or yet to be discovered artifact of the analytical approaches. This tendacy for more positive correlations is also reflected in the most correlated gene pairs with several correlations near 1, but the most negative correlation being approx. -0.6. The most positively correlated genes were tandem duplicates. Whereas the most negatively correlated genes are different chromosomes. These highly correlated gene pairs, both positive and negative, present intruiging cases for further investigation to study the phenotypic and fitness effects using double knockout with CRISPR. However, some hand curation is required before drawing in absolute conclusions. For example, the gene pair with the correlation equal to 1 is between two genes whcih are in fact overlapping, so their is some certaininty that the correlation simply reflects the same mutations affecting both genes.
+
+We found that correlated LoF was predicted by physical linkage, proximity in gene regulatory networks, and gene duplication. Interestingly, we found that proximity in gene regulatory networks was associated with more negative LoF correlations, supporting the hypothesis that purifying selection acts to stabilize the arichitecture of networks. Similarly, the observation that gene duplicates show more negative correlations (when considering only those pairs with correlations < 0) supports the hypothesis that purifying selection acts to maintain at least one functional copy of a gene. However, the observation that gene duplicates show more positive correlations (when considering only those pairs with correlations > 0) suggests that positive selection for gene loss may act on multiple copies of the same gene, rendering both non-functional. 
+
+We find evidence for the hypothesis that duplicates are more tolerant to LoF mutations, as they were signficantly more likely to have at least one LoF allele. However, we also found that for genes with at least 0.5% LoF alelle frequency, the total frequency of LoF was higher in non-duplicate genes. A possible explanation of this result is that in cases of adaptive loss-of-function selection acts more efficiently on singleton genes, thus increasing the frequency of LoF more rapidly. 
+
+This work would be complemented by further analyses to identify associations between these LoF alleles and climates or phenotypes, tests for signatures of selection, and experimental validation using artificially generated knockout lines.
+
+##Hypothses expanding on this work: 
+Genes with negative LoF allele correlations may predict hybrid incompatabilities and perfomance. 
+Genes with positive LoF allele correlations may exhibit strong associations to climate and phenotypes, signatures of selection.
+
+##Ideas for future work:
+Identify LoF alleles (and correlated groups of genes) associated with climate.
+Improve loss-of-function allele calls, especially with new reference genomes. 
+More advanced control for linkage - use MB position rather than gene name.
+Is correlated loss-of-function predicted in genes found in the same biochemical pathways? 
+Is the evolutionary history of gene loss of different genes predicted by their order in pathways? 
+Test double knockouts of negatively and positively correlated genes.
+Do genes with strong correlations exhibit different signatures of selection?
+
+\newpage
+
+# References
+```{r create_r-references}
+r_refs(file = "r-references.bib")
+```
+
+\begingroup
+\setlength{\parindent}{-0.5in}
+\setlength{\leftskip}{0.5in}
+
+<div id = "refs"></div>
+\endgroup
+
+\newpage
+\beginsupplement
+
+# Supplement 
+
+## Software used
+We used `r cite_r("r-references.bib")` for all our analyses.
+
